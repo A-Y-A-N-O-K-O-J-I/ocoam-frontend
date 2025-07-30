@@ -66,8 +66,11 @@ const navigate = useNavigate()
     
   } else if(output.status === 403){
     setLoading(true)
-    navigate("/verify-email")
-  }
+    navigate("/verify-email");
+  } 
+   if(output.status === 200){
+    navigate("/dashboard");
+   }
 
 }
 return (

@@ -7,6 +7,10 @@ import AuthOnlyRoute from './auth/authOnly';
 import EmailVerified from './util-pages/EmailVerified';
 import ForgotPassword from './util-pages/ForgotPassword';
 import ResetPassword from './util-pages/ResetPassword';
+import LiveClass from './pages/LiveClasses';
+import TestApp from './Test';
+import HomeSection from './pages/Home';
+import ModeratorDashboard from './pages/Dashboard';
 function App() {
   return (
     <Router>
@@ -72,6 +76,10 @@ function App() {
           }
         />
 <Route path = "/logout" element = {<Logout />} />
+<Route path='/dashboard' element = {<ModeratorDashboard />}/>
+<Route path='/test' element = {< TestApp />} />
+<Route path = "/" element = {<HomeSection /> } />
+<Route path = "/classroom/:classId" element = {<LiveClass />}/>
       </Routes>
     </Router>
   );

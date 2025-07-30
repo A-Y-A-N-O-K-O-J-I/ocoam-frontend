@@ -26,7 +26,7 @@ export default function AuthOnlyRoute({ children }) {
         } else {
           setLoggedIn(false);
         }
-      } catch (err) {
+      } catch {
         setLoggedIn(false);
       } finally {
         setChecking(false);
