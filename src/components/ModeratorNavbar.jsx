@@ -51,6 +51,7 @@ function ModeratorNavBar() {
       <ul className="flex-1">
         {menuItems.map((items, index) => {
           return (
+            <Link to={`/${items.labels.toLocaleLowerCase() == "home" ? "dashboard" : `${items.labels.toLocaleLowerCase()}`}`}>
             <li
               key={index}
               className="py-2 px-3 my-3 hover:bg-blue-600 rounded-md duration-300 curser-pointer flex gap-2 items-center"
@@ -64,18 +65,19 @@ function ModeratorNavBar() {
                 {items.labels}
               </p>
             </li>
+                </Link>
           );
         })}
       </ul>
       {/* Footer */}
+       <Link to = "/logout">
       <div className="px-3 py-2 text-sm flex items-center gap-2 hover:bg-blue-600 rounded-md duration-300 cursor-pointer">
        <div> <LogOutIcon size={25} /> </div>
-       <Link to = "/logout">
         <span className={`transition-all duration-300 origin-left ${isOpen ? "opacity-100 scale-100" : "opacity-0 scale-0"} whitespace-nowrap`}>
   Logout 
 </span>
-        </Link>
       </div>
+        </Link>
     </nav>
   );
 }

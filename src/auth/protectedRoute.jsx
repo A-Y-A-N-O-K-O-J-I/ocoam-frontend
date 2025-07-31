@@ -18,7 +18,7 @@ export default function ProtectedRoute({ children }) {
           { withCredentials: true } // 👈 this tells Axios to include cookies
         );
 
-        if (response.data.success) {
+        if (response.data.status === 200) {
           setValid(true);
         } else {
           navigate("/login");

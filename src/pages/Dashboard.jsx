@@ -23,6 +23,7 @@ export default function ModeratorDashboard() {
         <nav className="w-full bg-blue-500 sticky top-0 z-50 h-10 overflow-hidden transition-all duration-500 ease-in-out">
           <div className="flex justify-center py-2 space-x-5 items-center">
             <p className="md:font-extrabold font-bold text-white"> O.C.O.Y.A.M</p>
+            <span className="md:font-extrabold font-bold text-white"> Moderator</span>
           </div>
         </nav>
 

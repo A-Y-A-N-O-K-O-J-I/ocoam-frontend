@@ -11,6 +11,11 @@ import LiveClass from './pages/LiveClasses';
 import TestApp from './Test';
 import HomeSection from './pages/Home';
 import ModeratorDashboard from './pages/Dashboard';
+import ProtectedRoute from './auth/protectedRoute';
+import ClassesList from './pages/Classes';
+import StudentsList from './pages/Students';
+import TeachersList from './pages/Teachers';
+import ProfileSection from './pages/Profile';
 function App() {
   return (
     <Router>
@@ -76,8 +81,17 @@ function App() {
           }
         />
 <Route path = "/logout" element = {<Logout />} />
-<Route path='/dashboard' element = {<ModeratorDashboard />}/>
+
+<Route path='/dashboard' element = {
+  <ProtectedRoute>
+    <ModeratorDashboard />
+  </ProtectedRoute>
+  }/>
 <Route path='/test' element = {< TestApp />} />
+<Route path='/classes' element = {< ClassesList />} />
+<Route path='/students' element = {< StudentsList />} />
+<Route path='/profile' element = {< ProfileSection />} />
+<Route path='/teachers' element = {< TeachersList />} />
 <Route path = "/" element = {<HomeSection /> } />
 <Route path = "/classroom/:classId" element = {<LiveClass />}/>
       </Routes>
