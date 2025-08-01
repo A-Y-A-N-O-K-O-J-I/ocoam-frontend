@@ -1,26 +1,29 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import Login from './util-pages/Login';
-import Logout from './util-pages/Logout';
-import Signup from './util-pages/Signup';
-import VerifyEmail from './util-pages/VerifyEmail';
-import AuthOnlyRoute from './auth/authOnly';
-import EmailVerified from './util-pages/EmailVerified';
-import ForgotPassword from './util-pages/ForgotPassword';
-import ResetPassword from './util-pages/ResetPassword';
-import LiveClass from './pages/LiveClasses';
-import TestApp from './Test';
-import HomeSection from './pages/Home';
-import ModeratorDashboard from './pages/Dashboard';
-import ProtectedRoute from './auth/protectedRoute';
-import ClassesList from './pages/Classes';
-import StudentsList from './pages/Students';
-import TeachersList from './pages/Teachers';
-import ProfileSection from './pages/Profile';
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import Login from "./util-pages/Login";
+import Logout from "./util-pages/Logout";
+import Signup from "./util-pages/Signup";
+import VerifyEmail from "./util-pages/VerifyEmail";
+import AuthOnlyRoute from "./auth/authOnly";
+import EmailVerified from "./util-pages/EmailVerified";
+import ForgotPassword from "./util-pages/ForgotPassword";
+import ResetPassword from "./util-pages/ResetPassword";
+import LiveClass from "./moderatorPages/LiveClasses";
+import TestApp from "./Test";
+import HomeSection from "./moderatorPages/Home";
+import ModeratorDashboard from "./moderatorPages/Dashboard";
+import ProtectedRoute from "./auth/protectedRoute";
+import ClassesList from "./moderatorPages/Classes";
+import StudentsList from "./moderatorPages/Students";
+import TeachersList from "./moderatorPages/Teachers";
+import ProfileSection from "./moderatorPages/Profile";
+import StudentDashboard from "./studentsPages/Dashboard";
+import ProtectedModeratorRoute from "./auth/protectedModeratorRoute";
+import StudentClassesList from "./studentsPages/Classes";
+import StudentProfileSection from "./studentsPages/Profile";
 function App() {
   return (
     <Router>
       <Routes>
-
         {/* 🔐 Guest-only: Login Page */}
         <Route
           path="/login"
@@ -80,20 +83,39 @@ function App() {
             </AuthOnlyRoute>
           }
         />
-<Route path = "/logout" element = {<Logout />} />
+        <Route path="/logout" element={<Logout />} />
 
-<Route path='/dashboard' element = {
-  <ProtectedRoute>
-    <ModeratorDashboard />
-  </ProtectedRoute>
-  }/>
-<Route path='/test' element = {< TestApp />} />
-<Route path='/classes' element = {< ClassesList />} />
-<Route path='/students' element = {< StudentsList />} />
-<Route path='/profile' element = {< ProfileSection />} />
-<Route path='/teachers' element = {< TeachersList />} />
-<Route path = "/" element = {<HomeSection /> } />
-<Route path = "/classroom/:classId" element = {<LiveClass />}/>
+        <Route
+          path="/moderator/dashboard"
+          element={
+            <ProtectedModeratorRoute>
+              <ModeratorDashboard />
+            </ProtectedModeratorRoute>
+          }
+        />
+        <Route
+          path="/dashboard"
+          element={
+            <ProtectedRoute>
+              <StudentDashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/classes"
+          element={
+            <ProtectedRoute>
+              <StudentClassesList />
+            </ProtectedRoute>
+          }
+        />
+        <Route path="/moderator/test" element={<TestApp />} />
+        <Route path="/moderator/classes" element={<ClassesList />} />
+        <Route path="/moderator/students" element={<StudentsList />} />
+        <Route path="/moderator/profile" element={<ProfileSection />} />
+        <Route path="/moderator/teachers" element={<TeachersList />} />
+        <Route path="/" element={<HomeSection />} />
+        <Route path="/classroom/:classId" element={<LiveClass />} />
       </Routes>
     </Router>
   );

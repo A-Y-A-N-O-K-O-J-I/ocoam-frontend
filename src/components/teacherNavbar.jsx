@@ -14,7 +14,7 @@ function ModeratorNavBar() {
     { icons: <House size={20} />, labels: "Home" },
     { icons: <Video size={20} />, labels: "Classes" },
     { icons: <Users size={20} />, labels: "Students" },
-    { icons: <User size={20} />, labels: "Teachers" },
+    { icons: <User size={20} />, labels: "Teachers" }, 
     { icons: <UserCircle size={20} />, labels: "Profile" },
   ];
   const [isOpen, setIsOpen] = useState(false);
@@ -51,7 +51,7 @@ function ModeratorNavBar() {
       <ul className="flex-1">
         {menuItems.map((items, index) => {
           return (
-            <Link to={`/moderator/${items.labels.toLocaleLowerCase() == "home" ? "dashboard" : `${items.labels.toLocaleLowerCase()}`}`}>
+            <Link to={`/${items.labels.toLocaleLowerCase() == "home" ? "dashboard" : `${items.labels.toLocaleLowerCase()}`}`}>
             <li
               key={index}
               className="py-2 px-3 my-3 hover:bg-blue-600 rounded-md duration-300 curser-pointer flex gap-2 items-center"
