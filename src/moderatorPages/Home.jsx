@@ -78,11 +78,13 @@ export default function HomeSection() {
         {/* CTA Buttons */}
         <div className="space-y-4 md:space-y-0 md:space-x-6 md:flex md:justify-center">
           <button className="group w-full md:w-auto bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-semibold py-4 px-8 rounded-2xl transform hover:scale-105 transition-all duration-300 shadow-2xl hover:shadow-purple-500/25 flex items-center justify-center space-x-2">
-            <span className="text-lg"> <Link to = "/signup"> Get Started </Link></span>
+          <Link to = "/signup"><span className="text-lg">  Get Started </span></Link>
             <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />
           </button>
           
           <button className="group w-full md:w-auto bg-white/10 backdrop-blur-sm border border-white/20 hover:bg-white/20 text-white font-semibold py-4 px-8 rounded-2xl transform hover:scale-105 transition-all duration-300 hover:shadow-2xl">
+          
+          <Link to = "/login"><span className="text-lg">  Sign In </span></Link>
             <span className="text-lg">Sign In</span>
           </button>
         </div>
@@ -90,7 +92,7 @@ export default function HomeSection() {
         {/* Quick signup prompt */}
         <div className="mt-8 p-6 bg-white/5 backdrop-blur-sm rounded-2xl border border-white/10">
           <p className="text-gray-300 mb-4">
-            🚀 <strong>Join thousands</strong> of photographers in Oyo State
+            🚀 <strong>Join thousands</strong> of Thinkers in The world
           </p>
           <div className="flex flex-col sm:flex-row gap-3">
             <input 
