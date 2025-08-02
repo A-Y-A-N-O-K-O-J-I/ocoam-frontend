@@ -18,12 +18,17 @@ export default function AuthOnlyRoute({ children }) {
           { withCredentials: true }
         );
 
-        if (res.data.status === 200) {
+        if (res.data.status === 200 && res.data.moderator) {
+          setLoggedIn(true);
+          setTimeout(()=>{
+              navigate("/moderator/dashboard"); // already logged in? go away from login/signup
+          },2000)
+        } else if(res.data.status === 200 && !res.data.moderator){
           setLoggedIn(true);
           setTimeout(()=>{
               navigate("/dashboard"); // already logged in? go away from login/signup
           },2000)
-        } else {
+        }else {
           setLoggedIn(false);
         }
       } catch {

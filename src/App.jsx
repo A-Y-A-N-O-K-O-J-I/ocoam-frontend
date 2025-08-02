@@ -19,6 +19,7 @@ import ProfileSection from "./moderatorPages/Profile";
 import StudentDashboard from "./studentsPages/Dashboard";
 import ProtectedModeratorRoute from "./auth/protectedModeratorRoute";
 import StudentClassesList from "./studentsPages/Classes";
+import BecomeModerator from "./studentsPages/BecomeModerator";
 import StudentProfileSection from "./studentsPages/Profile";
 function App() {
   return (
@@ -109,7 +110,16 @@ function App() {
             </ProtectedRoute>
           }
         />
+        <Route
+          path="/profile"
+          element={
+            <ProtectedRoute>
+              <StudentProfileSection />
+            </ProtectedRoute>
+          }
+        />
         <Route path="/moderator/test" element={<TestApp />} />
+        <Route path="/moderator" element={<BecomeModerator />} />
         <Route path="/moderator/classes" element={<ClassesList />} />
         <Route path="/moderator/students" element={<StudentsList />} />
         <Route path="/moderator/profile" element={<ProfileSection />} />

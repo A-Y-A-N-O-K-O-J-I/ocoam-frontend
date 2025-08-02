@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import ModeratorNavBar from "../components/ModeratorNavbar";
+import ModeratorNavBar from "../components/studentsNavbar";
 import { FaRegTrashAlt } from "react-icons/fa";
 import axios from "axios";
 

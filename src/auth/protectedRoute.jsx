@@ -18,8 +18,10 @@ export default function ProtectedRoute({ children }) {
           { withCredentials: true } // 👈 this tells Axios to include cookies
         );
 
-        if (response.data.status === 200) {
+        if (response.data.status === 200 && !response.data.moderator) {
           setValid(true);
+        } else if(response.data.status === 200 && response.data.moderator){
+          navigate("/moderator/dashboard")
         } else {
           navigate("/login");
         }

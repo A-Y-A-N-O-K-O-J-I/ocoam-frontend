@@ -68,8 +68,11 @@ const navigate = useNavigate()
     setLoading(true)
     navigate("/verify-email");
   } 
-   if(output.status === 200){
-    navigate("/dashboard");
+   if(output.status === 200 && output.moderator){
+    navigate("/moderator/dashboard");
+   }
+   if(output.status === 200 && !output.moderator){
+    navigate("/dashboard")
    }
 
 }

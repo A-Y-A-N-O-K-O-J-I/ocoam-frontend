@@ -1,6 +1,6 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import ModeratorNavBar from "../components/ModeratorNavbar";
+import ModeratorNavBar from "../components/studentsNavbar";
 import { useState } from "react";
 
 export default function ProfileSection() {
