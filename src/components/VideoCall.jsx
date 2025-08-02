@@ -164,9 +164,9 @@ export default function VideoCall() {
     }
   };
 
-  // FIXED: Better peer connection management
-  const createPeerConnection = (remoteSocketId) => {
-    console.log(`🔗 Creating peer connection for ${remoteSocketId}`);
+  // FIXED: Better peer connection management with ICE candidate queuing
+  const createPeerConnection = (remoteSocketId, isInitiator = false) => {
+    console.log(`🔗 Creating peer connection for ${remoteSocketId} (initiator: ${isInitiator})`);
     
     // Close existing connection if it exists
     if (peersRef.current[remoteSocketId]) {
@@ -182,14 +182,37 @@ export default function VideoCall() {
       ]
     });
 
+    // Store pending ICE candidates until remote description is set
+    const pendingCandidates = [];
+    let remoteDescriptionSet = false;
+
     // Add connection state monitoring
     peerConnection.onconnectionstatechange = () => {
       console.log(`Connection state for ${remoteSocketId}:`, peerConnection.connectionState);
       if (peerConnection.connectionState === 'failed') {
-        console.log(`Connection failed for ${remoteSocketId}, cleaning up`);
-        if (peersRef.current[remoteSocketId]) {
-          delete peersRef.current[remoteSocketId];
-        }
+        console.log(`Connection failed for ${remoteSocketId}, retrying...`);
+        // Retry connection after a short delay
+        setTimeout(() => {
+          if (peersRef.current[remoteSocketId] === peerConnection) {
+            const newPc = createPeerConnection(remoteSocketId, isInitiator);
+            if (isInitiator) {
+              // Re-initiate if we were the initiator
+              newPc.createOffer({
+                offerToReceiveAudio: true,
+                offerToReceiveVideo: true
+              }).then(offer => {
+                newPc.setLocalDescription(offer);
+                if (socketRef.current) {
+                  socketRef.current.emit('offer', {
+                    offer,
+                    to: remoteSocketId,
+                    from: socketRef.current.id
+                  });
+                }
+              }).catch(console.error);
+            }
+          }
+        }, 2000);
       }
     };
 
@@ -200,16 +223,21 @@ export default function VideoCall() {
       });
     }
 
-    // Handle remote stream
+    // Handle remote stream - FIXED: Better stream handling
     peerConnection.ontrack = (event) => {
       console.log('🎥 Received remote stream from:', remoteSocketId);
       const remoteStream = event.streams[0];
       
-      setParticipants(prev => prev.map(participant => 
-        participant.socketId === remoteSocketId 
-          ? { ...participant, stream: remoteStream }
-          : participant
-      ));
+      // Immediately update participants state
+      setParticipants(prev => {
+        const updated = prev.map(participant => 
+          participant.socketId === remoteSocketId 
+            ? { ...participant, stream: remoteStream }
+            : participant
+        );
+        console.log('✅ Updated participants with stream for:', remoteSocketId);
+        return updated;
+      });
     };
 
     // Handle ICE candidates
@@ -221,6 +249,28 @@ export default function VideoCall() {
           from: socketRef.current.id
         });
       }
+    };
+
+    // Store method to process pending candidates
+    peerConnection.processPendingCandidates = async () => {
+      if (remoteDescriptionSet && pendingCandidates.length > 0) {
+        console.log(`Processing ${pendingCandidates.length} pending candidates for ${remoteSocketId}`);
+        for (const candidate of pendingCandidates) {
+          try {
+            await peerConnection.addIceCandidate(candidate);
+          } catch (error) {
+            console.error('Error adding queued candidate:', error);
+          }
+        }
+        pendingCandidates.length = 0;
+      }
+    };
+
+    // Store pending candidates queue and helper methods
+    peerConnection.pendingCandidates = pendingCandidates;
+    peerConnection.setRemoteDescriptionSet = () => {
+      remoteDescriptionSet = true;
+      peerConnection.processPendingCandidates();
     };
 
     peersRef.current[remoteSocketId] = peerConnection;
@@ -246,16 +296,17 @@ export default function VideoCall() {
       });
     });
 
-    // FIXED: Handle user list - only exclude by socket ID
+    // FIXED: Handle user list with better filtering and staggered connections
     socket.on('user-list', async (users) => {
       console.log('📝 Received user list:', users);
       console.log('🔍 My socket ID:', socket.id);
       
-      // Only exclude by socket ID (not by role or name, since multiple tabs can have same role/name)
+      // Only exclude by socket ID and add additional safety check
       const otherUsers = users.filter(user => {
         const isMe = user.socketId === socket.id;
-        console.log(`👤 User: ${user.name} (${user.socketId}) - ${isMe ? '❌ EXCLUDE (MY SOCKET)' : '✅ INCLUDE'}`);
-        return !isMe;
+        const hasValidId = user.socketId && user.socketId !== '';
+        console.log(`👤 User: ${user.name} (${user.socketId}) - ${isMe ? '❌ EXCLUDE (MY SOCKET)' : hasValidId ? '✅ INCLUDE' : '⚠️ INVALID ID'}`);
+        return !isMe && hasValidId;
       });
       
       console.log('✅ Other users to connect to:', otherUsers);
@@ -273,31 +324,44 @@ export default function VideoCall() {
         stream: null
       })));
 
-      // Create peer connections for existing users
-      setTimeout(async () => {
-        for (const user of otherUsers) {
-          console.log(`🤝 Initiating connection to ${user.name} (${user.socketId})`);
-          const peerConnection = createPeerConnection(user.socketId);
-          
-          try {
-            const offer = await peerConnection.createOffer();
-            await peerConnection.setLocalDescription(offer);
+      // Create peer connections for existing users with staggered timing
+      if (otherUsers.length > 0) {
+        console.log('⏳ Waiting 1 second before initiating connections...');
+        setTimeout(async () => {
+          for (let i = 0; i < otherUsers.length; i++) {
+            const user = otherUsers[i];
+            console.log(`🤝 Initiating connection to ${user.name} (${user.socketId})`);
             
-            socket.emit('offer', {
-              offer,
-              to: user.socketId,
-              from: socket.id
-            });
+            const peerConnection = createPeerConnection(user.socketId, true);
             
-            console.log(`📤 Sent offer to ${user.name}`);
-          } catch (error) {
-            console.error(`❌ Error creating offer for ${user.name}:`, error);
+            try {
+              const offer = await peerConnection.createOffer({
+                offerToReceiveAudio: true,
+                offerToReceiveVideo: true
+              });
+              await peerConnection.setLocalDescription(offer);
+              
+              socket.emit('offer', {
+                offer,
+                to: user.socketId,
+                from: socket.id
+              });
+              
+              console.log(`📤 Sent offer to ${user.name}`);
+            } catch (error) {
+              console.error(`❌ Error creating offer for ${user.name}:`, error);
+            }
+            
+            // Stagger connections to prevent overwhelming
+            if (i < otherUsers.length - 1) {
+              await new Promise(resolve => setTimeout(resolve, 500));
+            }
           }
-        }
-      }, 500);
+        }, 1000);
+      }
     });
 
-    // FIXED: Handle new user joining - only exclude by socket ID
+    // FIXED: Handle new user joining with better deduplication
     socket.on('user-joined', ({ userId, socketId, name, role: userRole }) => {
       console.log(`📢 New user joined: ${name} (${userRole}) with socket ${socketId}`);
       console.log('🔍 My socket ID:', socket.id);
@@ -419,14 +483,15 @@ export default function VideoCall() {
       }));
     });
 
-    // FIXED: WebRTC signaling events with better error handling
+    // FIXED: WebRTC signaling events with better error handling and candidate queuing
     socket.on('offer', async ({ offer, from }) => {
       console.log('📨 Received offer from:', from);
       
       try {
-        const peerConnection = createPeerConnection(from);
+        const peerConnection = createPeerConnection(from, false);
         
         await peerConnection.setRemoteDescription(offer);
+        peerConnection.setRemoteDescriptionSet(); // Process pending candidates
         
         const answer = await peerConnection.createAnswer();
         await peerConnection.setLocalDescription(answer);
@@ -440,6 +505,10 @@ export default function VideoCall() {
         console.log(`✅ Successfully handled offer and sent answer to ${from}`);
       } catch (error) {
         console.error('❌ Error handling offer:', error);
+        // Retry after delay
+        setTimeout(() => {
+          socket.emit('request-retry', { to: from, from: socket.id });
+        }, 2000);
       }
     });
 
@@ -450,6 +519,7 @@ export default function VideoCall() {
       if (peerConnection && peerConnection.signalingState === 'have-local-offer') {
         try {
           await peerConnection.setRemoteDescription(answer);
+          peerConnection.setRemoteDescriptionSet(); // Process pending candidates
           console.log(`✅ Successfully set remote description for ${from}`);
         } catch (error) {
           console.error('❌ Error handling answer:', error);
@@ -463,16 +533,56 @@ export default function VideoCall() {
       console.log('📨 Received ICE candidate from:', from);
       
       const peerConnection = peersRef.current[from];
-      if (peerConnection && peerConnection.remoteDescription) {
-        try {
-          await peerConnection.addIceCandidate(candidate);
-          console.log(`✅ Added ICE candidate for ${from}`);
-        } catch (error) {
-          console.error('❌ Error adding ICE candidate:', error);
+      if (peerConnection) {
+        if (peerConnection.remoteDescription) {
+          try {
+            await peerConnection.addIceCandidate(candidate);
+            console.log(`✅ Added ICE candidate for ${from}`);
+          } catch (error) {
+            console.error('❌ Error adding ICE candidate:', error);
+          }
+        } else {
+          // Queue the candidate for later
+          console.log(`📦 Queuing ICE candidate for ${from} (no remote description yet)`);
+          peerConnection.pendingCandidates.push(candidate);
         }
       } else {
-        console.warn(`⚠️ Cannot add ICE candidate for ${from} - no remote description`);
+        console.warn(`⚠️ Cannot add ICE candidate for ${from} - no peer connection`);
       }
+    });
+
+    // Add retry mechanism for failed connections
+    socket.on('request-retry', ({ from }) => {
+      console.log('🔄 Retry requested from:', from);
+      
+      // Clean up existing connection
+      if (peersRef.current[from]) {
+        peersRef.current[from].close();
+        delete peersRef.current[from];
+      }
+      
+      // Create new connection after delay
+      setTimeout(async () => {
+        const peerConnection = createPeerConnection(from, true);
+        
+        try {
+          const offer = await peerConnection.createOffer({
+            offerToReceiveAudio: true,
+            offerToReceiveVideo: true
+          });
+          await peerConnection.setLocalDescription(offer);
+          
+          socket.emit('offer', {
+            offer,
+            to: from,
+            from: socket.id
+          });
+          
+          console.log(`🔄 Sent retry offer to ${from}`);
+        } catch (error) {
+          console.error(`❌ Error in retry for ${from}:`, error);
+        }
+      }, 1000);
     });
 
     return socket;
@@ -805,6 +915,7 @@ function RemoteVideo({ participant, isActive }) {
 
   useEffect(() => {
     if (participant.stream && videoRef.current) {
+      console.log(`🎥 Setting stream for participant: ${participant.name}`);
       videoRef.current.srcObject = participant.stream;
     }
   }, [participant.stream]);
