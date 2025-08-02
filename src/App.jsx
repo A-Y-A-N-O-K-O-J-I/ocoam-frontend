@@ -21,6 +21,7 @@ import ProtectedModeratorRoute from "./auth/protectedModeratorRoute";
 import StudentClassesList from "./studentsPages/Classes";
 import BecomeModerator from "./studentsPages/BecomeModerator";
 import StudentProfileSection from "./studentsPages/Profile";
+import NotFoundPage from "./util-pages/NotFound";
 // In your main App.jsx or router file
 import VideoCall from './components/VideoCall';
 
@@ -160,6 +161,7 @@ function App() {
         />
         <Route path="/" element={<HomeSection />} />
         <Route path="/classroom/:classId" element={<LiveClass />} />
+        <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </Router>
   );

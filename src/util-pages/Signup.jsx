@@ -91,7 +91,6 @@ const handleChange = (e) => {
 
   if(name === "phone_number"){
     if(value.includes('+')){
-      console.log(value)
      const phoneNumber = parsePhoneNumber(value)
      if(!phoneNumber?.isValid()){
       setError((prev) => ({

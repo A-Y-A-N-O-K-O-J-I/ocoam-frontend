@@ -176,6 +176,7 @@ export default function ClassesList() {
           navigate(`/class/${cls.access_code}?role=moderator`);
         }, 1000);
       } else {
+        
         throw new Error('Failed to start class');
       }
     } catch (error) {
