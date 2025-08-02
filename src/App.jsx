@@ -21,6 +21,10 @@ import ProtectedModeratorRoute from "./auth/protectedModeratorRoute";
 import StudentClassesList from "./studentsPages/Classes";
 import BecomeModerator from "./studentsPages/BecomeModerator";
 import StudentProfileSection from "./studentsPages/Profile";
+// In your main App.jsx or router file
+import VideoCall from './components/VideoCall';
+
+// Add this route
 function App() {
   return (
     <Router>
@@ -34,6 +38,7 @@ function App() {
             </AuthOnlyRoute>
           }
         />
+          <Route path="/class/:accessCode" element={<VideoCall />} />
 
         {/* 🔐 Guest-only: Signup Page */}
         <Route
