@@ -120,10 +120,39 @@ function App() {
         />
         <Route path="/moderator/test" element={<TestApp />} />
         <Route path="/moderator" element={<BecomeModerator />} />
-        <Route path="/moderator/classes" element={<ClassesList />} />
-        <Route path="/moderator/students" element={<StudentsList />} />
-        <Route path="/moderator/profile" element={<ProfileSection />} />
-        <Route path="/moderator/teachers" element={<TeachersList />} />
+        <Route
+          path="/moderator/classes"
+          element={
+            <ProtectedModeratorRoute>
+              {" "}
+              <ClassesList />{" "}
+            </ProtectedModeratorRoute>
+          }
+        />
+        <Route
+          path="/moderator/students"
+          element={
+            <ProtectedModeratorRoute>
+              <StudentsList />{" "}
+            </ProtectedModeratorRoute>
+          }
+        />
+        <Route
+          path="/moderator/profile"
+          element={
+            <ProtectedModeratorRoute>
+              <ProfileSection />
+            </ProtectedModeratorRoute>
+          }
+        />
+        <Route
+          path="/moderator/teachers"
+          element={
+            <ProtectedModeratorRoute>
+              <TeachersList />
+            </ProtectedModeratorRoute>
+          }
+        />
         <Route path="/" element={<HomeSection />} />
         <Route path="/classroom/:classId" element={<LiveClass />} />
       </Routes>
