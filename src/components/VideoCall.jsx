@@ -229,7 +229,7 @@ export default function VideoCall() {
 
   // FIXED: Initialize socket connection with better identity management
   const initializeSocket = () => {
-    const socket = io('http://localhost:3030');
+    const socket = io('https://a-y-a-n-o-k-o-j-i-ocoyam.hf.space');
     socketRef.current = socket;
 
     socket.on('connect', () => {
@@ -506,7 +506,7 @@ export default function VideoCall() {
     if (role === 'moderator') {
       try {
         console.log('👨‍🏫 Moderator ending class...');
-        await fetch(`http://localhost:3030/classes/end-class/${accessCode}`, {
+        await fetch(`https://a-y-a-n-o-k-o-j-i-ocoyam.hf.space/classes/end-class/${accessCode}`, {
           method: 'POST'
         });
       } catch (error) {

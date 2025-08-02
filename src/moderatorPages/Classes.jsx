@@ -158,7 +158,7 @@ export default function ClassesList() {
 
     try {
       // Call backend to start the class (change status to live)
-      const response = await fetch(`http://localhost:3030/classes/start-class/${cls.access_code}`, {
+      const response = await fetch(`https://a-y-a-n-o-k-o-j-i-ocoyam.hf.space/classes/start-class/${cls.access_code}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
