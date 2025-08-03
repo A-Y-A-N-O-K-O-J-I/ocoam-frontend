@@ -9,7 +9,7 @@ import ForgotPassword from "./util-pages/ForgotPassword";
 import ResetPassword from "./util-pages/ResetPassword";
 import LiveClass from "./moderatorPages/LiveClasses";
 import TestApp from "./Test";
-import HomeSection from "./moderatorPages/Home";
+import HomeSection from "./pages/Home";
 import ModeratorDashboard from "./moderatorPages/Dashboard";
 import ProtectedRoute from "./auth/protectedRoute";
 import ClassesList from "./moderatorPages/Classes";

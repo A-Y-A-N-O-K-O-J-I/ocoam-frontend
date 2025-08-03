@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useParams, useSearchParams, useNavigate } from "react-router-dom";
 import { io } from "socket.io-client";
-import { FaMicrophone, FaMicrophoneSlash, FaVideo, FaVideoSlash, FaPhone, FaRecordVinyl, FaStop, FaEdit, FaCheck, FaTimes } from "react-icons/fa";
+import { FaMicrophone, FaMicrophoneSlash, FaVideo, FaVideoSlash, FaPhone, FaRecordVinyl, FaStop, FaEdit, FaCheck, FaTimes, FaHandPaper } from "react-icons/fa";
 
 export default function VideoCall() {
   const { accessCode } = useParams();
@@ -14,14 +14,15 @@ export default function VideoCall() {
   const localVideoRef = useRef(null);
   const localStreamRef = useRef(null);
   const peersRef = useRef({});
+  const audioElementsRef = useRef({}); // For separate audio elements
   const mediaRecorderRef = useRef(null);
   const audioContextRef = useRef(null);
   const analyserRef = useRef(null);
   
-  // State management - FIXED: Create unique user ID per tab/session
+  // State management
   const [isConnected, setIsConnected] = useState(false);
   const [participants, setParticipants] = useState([]);
-  const [localUserId] = useState(`${role}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`); // More unique ID
+  const [localUserId] = useState(`${role}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
   const [userName, setUserName] = useState(role === 'moderator' ? 'Moderator' : 'Student');
   const [isEditingName, setIsEditingName] = useState(false);
   const [tempName, setTempName] = useState(userName);
@@ -34,6 +35,10 @@ export default function VideoCall() {
   const [isRecording, setIsRecording] = useState(false);
   const [recordedChunks, setRecordedChunks] = useState([]);
   const [voiceActivity, setVoiceActivity] = useState({});
+  
+  // NEW: Raise hand state
+  const [isHandRaised, setIsHandRaised] = useState(false);
+  const [raisedHands, setRaisedHands] = useState(new Set());
 
   // Notification component
   const Notification = ({ message, type, onClose }) => {
@@ -76,7 +81,6 @@ export default function VideoCall() {
       setUserName(newName);
       setIsEditingName(false);
       
-      // Notify other participants of name change
       if (socketRef.current) {
         socketRef.current.emit('name-changed', {
           roomId: accessCode,
@@ -93,6 +97,25 @@ export default function VideoCall() {
   const handleNameCancel = () => {
     setTempName(userName);
     setIsEditingName(false);
+  };
+
+  // NEW: Raise hand functionality
+  const toggleRaiseHand = () => {
+    const newHandState = !isHandRaised;
+    setIsHandRaised(newHandState);
+    
+    if (socketRef.current) {
+      socketRef.current.emit('hand-raised', {
+        roomId: accessCode,
+        isRaised: newHandState,
+        userName: userName
+      });
+    }
+    
+    showNotification(
+      newHandState ? 'Hand raised!' : 'Hand lowered', 
+      newHandState ? 'info' : 'success'
+    );
   };
 
   // Voice activity detection
@@ -112,12 +135,12 @@ export default function VideoCall() {
       analyserRef.current = analyser;
 
       const checkVoiceActivity = () => {
-        if (!analyserRef.current) return;
+        if (!analyiserRef.current) return;
         
         analyser.getByteFrequencyData(dataArray);
         const average = dataArray.reduce((a, b) => a + b) / bufferLength;
         
-        const isActive = average > 20; // Adjust threshold as needed
+        const isActive = average > 20;
         
         if (socketRef.current) {
           socketRef.current.emit('voice-activity', {
@@ -140,10 +163,11 @@ export default function VideoCall() {
     }
   };
 
-  // Initialize media stream
+  // UPDATED: Initialize media stream with audio fallback
   const initializeMedia = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
+      // Try video + audio first
+      let stream = await navigator.mediaDevices.getUserMedia({
         video: true,
         audio: true
       });
@@ -153,18 +177,49 @@ export default function VideoCall() {
         localVideoRef.current.srcObject = stream;
       }
       
-      // Setup voice detection
       setupVoiceDetection(stream);
+      showNotification('Camera and microphone connected', 'success');
       
       return stream;
-    } catch (error) {
-      console.error('Error accessing media devices:', error);
-      showNotification('Failed to access camera/microphone. Please check permissions.', 'error');
-      return null;
+    } catch (videoError) {
+      console.warn('Video access failed, trying audio only:', videoError);
+      
+      try {
+        // Fallback to audio only
+        const audioStream = await navigator.mediaDevices.getUserMedia({
+          video: false,
+          audio: true
+        });
+        
+        localStreamRef.current = audioStream;
+        setupVoiceDetection(audioStream);
+        setIsVideoOff(true); // Mark video as off since we couldn't get it
+        showNotification('Audio connected (video unavailable)', 'warning');
+        
+        return audioStream;
+      } catch (audioError) {
+        console.error('Audio access also failed:', audioError);
+        showNotification('Failed to access microphone. Check permissions.', 'error');
+        return null;
+      }
     }
   };
 
-  // FIXED: Better peer connection management with ICE candidate queuing
+  // UPDATED: Create separate audio elements for each participant
+  const createAudioElement = (socketId) => {
+    if (!audioElementsRef.current[socketId]) {
+      const audio = document.createElement('audio');
+      audio.autoplay = true;
+      audio.controls = false;
+      audio.style.display = 'none';
+      document.body.appendChild(audio);
+      audioElementsRef.current[socketId] = audio;
+      console.log(`🔊 Created audio element for ${socketId}`);
+    }
+    return audioElementsRef.current[socketId];
+  };
+
+  // UPDATED: Better peer connection with audio fallback
   const createPeerConnection = (remoteSocketId, isInitiator = false) => {
     console.log(`🔗 Creating peer connection for ${remoteSocketId} (initiator: ${isInitiator})`);
     
@@ -182,65 +237,67 @@ export default function VideoCall() {
       ]
     });
 
-    // Store pending ICE candidates until remote description is set
+    // Store pending ICE candidates
     const pendingCandidates = [];
     let remoteDescriptionSet = false;
 
-    // Add connection state monitoring
+    // Connection state monitoring
     peerConnection.onconnectionstatechange = () => {
       console.log(`Connection state for ${remoteSocketId}:`, peerConnection.connectionState);
-      if (peerConnection.connectionState === 'failed') {
-        console.log(`Connection failed for ${remoteSocketId}, retrying...`);
-        // Retry connection after a short delay
-        setTimeout(() => {
-          if (peersRef.current[remoteSocketId] === peerConnection) {
-            const newPc = createPeerConnection(remoteSocketId, isInitiator);
-            if (isInitiator) {
-              // Re-initiate if we were the initiator
-              newPc.createOffer({
-                offerToReceiveAudio: true,
-                offerToReceiveVideo: true
-              }).then(offer => {
-                newPc.setLocalDescription(offer);
-                if (socketRef.current) {
-                  socketRef.current.emit('offer', {
-                    offer,
-                    to: remoteSocketId,
-                    from: socketRef.current.id
-                  });
-                }
-              }).catch(console.error);
-            }
-          }
-        }, 2000);
+      if (peerConnection.connectionState === 'connected') {
+        console.log(`✅ Successfully connected to ${remoteSocketId}`);
+      } else if (peerConnection.connectionState === 'failed') {
+        console.log(`❌ Connection failed for ${remoteSocketId}`);
+        showNotification(`Connection lost with a participant`, 'warning');
       }
     };
 
-    // Add local stream to peer connection
+    // Add local stream
     if (localStreamRef.current) {
       localStreamRef.current.getTracks().forEach(track => {
         peerConnection.addTrack(track, localStreamRef.current);
+        console.log(`📤 Added ${track.kind} track to peer connection`);
       });
     }
 
-    // Handle remote stream - FIXED: Better stream handling
+    // UPDATED: Handle remote stream with audio fallback
     peerConnection.ontrack = (event) => {
-      console.log('🎥 Received remote stream from:', remoteSocketId);
+      console.log(`🎥 Received ${event.track.kind} track from:`, remoteSocketId);
       const remoteStream = event.streams[0];
       
-      // Immediately update participants state
+      // Always create audio element for audio playback
+      const audioElement = createAudioElement(remoteSocketId);
+      audioElement.srcObject = remoteStream;
+      console.log(`🔊 Set audio stream for ${remoteSocketId}`);
+      
+      // Update participants state - even if video fails, we have audio
       setParticipants(prev => {
         const updated = prev.map(participant => 
           participant.socketId === remoteSocketId 
-            ? { ...participant, stream: remoteStream }
+            ? { 
+                ...participant, 
+                stream: remoteStream,
+                hasAudio: remoteStream.getAudioTracks().length > 0,
+                hasVideo: remoteStream.getVideoTracks().length > 0
+              }
             : participant
         );
-        console.log('✅ Updated participants with stream for:', remoteSocketId);
+        console.log(`✅ Updated participant ${remoteSocketId} with stream`);
         return updated;
       });
+      
+      // Show notification about connection type
+      const hasVideo = remoteStream.getVideoTracks().length > 0;
+      const hasAudio = remoteStream.getAudioTracks().length > 0;
+      
+      if (hasVideo && hasAudio) {
+        showNotification('Participant connected with video & audio', 'success');
+      } else if (hasAudio) {
+        showNotification('Participant connected with audio only', 'info');
+      }
     };
 
-    // Handle ICE candidates
+    // ICE candidate handling
     peerConnection.onicecandidate = (event) => {
       if (event.candidate && socketRef.current) {
         socketRef.current.emit('ice-candidate', {
@@ -251,7 +308,7 @@ export default function VideoCall() {
       }
     };
 
-    // Store method to process pending candidates
+    // Process pending candidates
     peerConnection.processPendingCandidates = async () => {
       if (remoteDescriptionSet && pendingCandidates.length > 0) {
         console.log(`Processing ${pendingCandidates.length} pending candidates for ${remoteSocketId}`);
@@ -266,7 +323,6 @@ export default function VideoCall() {
       }
     };
 
-    // Store pending candidates queue and helper methods
     peerConnection.pendingCandidates = pendingCandidates;
     peerConnection.setRemoteDescriptionSet = () => {
       remoteDescriptionSet = true;
@@ -277,17 +333,15 @@ export default function VideoCall() {
     return peerConnection;
   };
 
-  // FIXED: Initialize socket connection with better identity management
+  // Initialize socket connection
   const initializeSocket = () => {
     const socket = io('https://a-y-a-n-o-k-o-j-i-ocoyam.hf.space');
     socketRef.current = socket;
 
     socket.on('connect', () => {
       console.log('🔌 Connected to signaling server with ID:', socket.id);
-      console.log('👤 My details:', { userId: localUserId, role, name: userName });
       setIsConnected(true);
       
-      // Join the room with role
       socket.emit('join-room', {
         userId: localUserId,
         roomId: accessCode,
@@ -296,22 +350,17 @@ export default function VideoCall() {
       });
     });
 
-    // FIXED: Handle user list with better filtering and staggered connections
+    // Handle user list
     socket.on('user-list', async (users) => {
       console.log('📝 Received user list:', users);
-      console.log('🔍 My socket ID:', socket.id);
       
-      // Only exclude by socket ID and add additional safety check
       const otherUsers = users.filter(user => {
         const isMe = user.socketId === socket.id;
         const hasValidId = user.socketId && user.socketId !== '';
-        console.log(`👤 User: ${user.name} (${user.socketId}) - ${isMe ? '❌ EXCLUDE (MY SOCKET)' : hasValidId ? '✅ INCLUDE' : '⚠️ INVALID ID'}`);
         return !isMe && hasValidId;
       });
       
-      console.log('✅ Other users to connect to:', otherUsers);
-      
-      // Clear existing participants and peer connections
+      // Clear existing connections
       Object.keys(peersRef.current).forEach(socketId => {
         if (peersRef.current[socketId]) {
           peersRef.current[socketId].close();
@@ -321,16 +370,17 @@ export default function VideoCall() {
       
       setParticipants(otherUsers.map(user => ({
         ...user,
-        stream: null
+        stream: null,
+        hasAudio: false,
+        hasVideo: false
       })));
 
-      // Create peer connections for existing users with staggered timing
+      // Create connections with staggered timing
       if (otherUsers.length > 0) {
-        console.log('⏳ Waiting 1 second before initiating connections...');
         setTimeout(async () => {
           for (let i = 0; i < otherUsers.length; i++) {
             const user = otherUsers[i];
-            console.log(`🤝 Initiating connection to ${user.name} (${user.socketId})`);
+            console.log(`🤝 Initiating connection to ${user.name}`);
             
             const peerConnection = createPeerConnection(user.socketId, true);
             
@@ -352,7 +402,6 @@ export default function VideoCall() {
               console.error(`❌ Error creating offer for ${user.name}:`, error);
             }
             
-            // Stagger connections to prevent overwhelming
             if (i < otherUsers.length - 1) {
               await new Promise(resolve => setTimeout(resolve, 500));
             }
@@ -361,48 +410,39 @@ export default function VideoCall() {
       }
     });
 
-    // FIXED: Handle new user joining with better deduplication
+    // Handle new user joining
     socket.on('user-joined', ({ userId, socketId, name, role: userRole }) => {
-      console.log(`📢 New user joined: ${name} (${userRole}) with socket ${socketId}`);
-      console.log('🔍 My socket ID:', socket.id);
+      console.log(`📢 New user joined: ${name}`);
       
-      // Only exclude if it's the same socket ID
       const isMe = socketId === socket.id;
       
       if (!isMe) {
-        console.log('✅ Adding new participant:', { userId, socketId, name, role: userRole });
-        
         setParticipants(prev => {
-          // Check if this socket ID already exists
           const alreadyExists = prev.some(p => p.socketId === socketId);
+          if (alreadyExists) return prev;
           
-          if (alreadyExists) {
-            console.log('⚠️ User already exists, skipping');
-            return prev;
-          }
-          
-          const newParticipant = {
+          return [...prev, {
             userId,
             socketId,
             name,
             role: userRole,
-            stream: null
-          };
-          
-          return [...prev, newParticipant];
+            stream: null,
+            hasAudio: false,
+            hasVideo: false
+          }];
         });
-        
-        // Wait for them to send us an offer (they're the initiator since they joined)
-        console.log(`⏳ Waiting for offer from ${name}`);
-        
-      } else {
-        console.log('❌ This is my own socket, ignoring');
       }
     });
 
     // Handle user disconnecting
     socket.on('user-disconnected', (socketId) => {
       console.log('👋 User disconnected:', socketId);
+      
+      // Clean up audio element
+      if (audioElementsRef.current[socketId]) {
+        document.body.removeChild(audioElementsRef.current[socketId]);
+        delete audioElementsRef.current[socketId];
+      }
       
       // Close peer connection
       if (peersRef.current[socketId]) {
@@ -411,23 +451,23 @@ export default function VideoCall() {
       }
       
       // Remove from participants
-      setParticipants(prev => {
-        const userToRemove = prev.find(p => p.socketId === socketId);
-        if (userToRemove) {
-          console.log(`🗑️ Removing participant: ${userToRemove.name}`);
-        }
-        return prev.filter(p => p.socketId !== socketId);
-      });
+      setParticipants(prev => prev.filter(p => p.socketId !== socketId));
       
-      // Clean up voice activity
+      // Clean up voice activity and raised hands
       setVoiceActivity(prev => {
         const newActivity = { ...prev };
         delete newActivity[socketId];
         return newActivity;
       });
+      
+      setRaisedHands(prev => {
+        const newHands = new Set(prev);
+        newHands.delete(socketId);
+        return newHands;
+      });
     });
 
-    // Handle name changes from other users
+    // Handle name changes
     socket.on('user-name-changed', ({ socketId, newName }) => {
       setParticipants(prev => prev.map(participant => 
         participant.socketId === socketId 
@@ -436,12 +476,27 @@ export default function VideoCall() {
       ));
     });
 
-    // Handle moderator left
+    // NEW: Handle raise hand events
+    socket.on('user-hand-raised', ({ socketId, isRaised, userName }) => {
+      setRaisedHands(prev => {
+        const newHands = new Set(prev);
+        if (isRaised) {
+          newHands.add(socketId);
+          if (role === 'moderator') {
+            showNotification(`${userName} raised their hand`, 'info');
+          }
+        } else {
+          newHands.delete(socketId);
+        }
+        return newHands;
+      });
+    });
+
+    // Handle moderator events
     socket.on('moderator-left', ({ message, countdown: initialCountdown }) => {
       showNotification(message, 'warning');
       setCountdown(initialCountdown);
       
-      // Start countdown
       const countdownInterval = setInterval(() => {
         setCountdown(prev => {
           if (prev <= 1) {
@@ -453,26 +508,19 @@ export default function VideoCall() {
       }, 1000);
     });
 
-    // Handle moderator returned
     socket.on('moderator-returned', ({ message }) => {
       showNotification(message, 'success');
       setCountdown(null);
     });
 
-    // Handle room closed
     socket.on('room-closed', ({ reason }) => {
       showNotification(`Room closed: ${reason}`, 'error');
-      setTimeout(() => {
-        navigate('/classes');
-      }, 3000);
+      setTimeout(() => navigate('/classes'), 3000);
     });
 
-    // Handle class ended
     socket.on('class-ended', ({ reason }) => {
       showNotification(`Class ended: ${reason}`, 'info');
-      setTimeout(() => {
-        navigate('/classes');
-      }, 3000);
+      setTimeout(() => navigate('/classes'), 3000);
     });
 
     // Voice activity from other users
@@ -483,7 +531,7 @@ export default function VideoCall() {
       }));
     });
 
-    // FIXED: WebRTC signaling events with better error handling and candidate queuing
+    // WebRTC signaling with better error handling
     socket.on('offer', async ({ offer, from }) => {
       console.log('📨 Received offer from:', from);
       
@@ -491,7 +539,7 @@ export default function VideoCall() {
         const peerConnection = createPeerConnection(from, false);
         
         await peerConnection.setRemoteDescription(offer);
-        peerConnection.setRemoteDescriptionSet(); // Process pending candidates
+        peerConnection.setRemoteDescriptionSet();
         
         const answer = await peerConnection.createAnswer();
         await peerConnection.setLocalDescription(answer);
@@ -502,13 +550,9 @@ export default function VideoCall() {
           from: socket.id
         });
         
-        console.log(`✅ Successfully handled offer and sent answer to ${from}`);
+        console.log(`✅ Successfully handled offer from ${from}`);
       } catch (error) {
         console.error('❌ Error handling offer:', error);
-        // Retry after delay
-        setTimeout(() => {
-          socket.emit('request-retry', { to: from, from: socket.id });
-        }, 2000);
       }
     });
 
@@ -519,70 +563,27 @@ export default function VideoCall() {
       if (peerConnection && peerConnection.signalingState === 'have-local-offer') {
         try {
           await peerConnection.setRemoteDescription(answer);
-          peerConnection.setRemoteDescriptionSet(); // Process pending candidates
+          peerConnection.setRemoteDescriptionSet();
           console.log(`✅ Successfully set remote description for ${from}`);
         } catch (error) {
           console.error('❌ Error handling answer:', error);
         }
-      } else {
-        console.warn(`⚠️ Cannot handle answer from ${from}. State: ${peerConnection?.signalingState || 'No peer connection'}`);
       }
     });
 
     socket.on('ice-candidate', async ({ candidate, from }) => {
-      console.log('📨 Received ICE candidate from:', from);
-      
       const peerConnection = peersRef.current[from];
       if (peerConnection) {
         if (peerConnection.remoteDescription) {
           try {
             await peerConnection.addIceCandidate(candidate);
-            console.log(`✅ Added ICE candidate for ${from}`);
           } catch (error) {
             console.error('❌ Error adding ICE candidate:', error);
           }
         } else {
-          // Queue the candidate for later
-          console.log(`📦 Queuing ICE candidate for ${from} (no remote description yet)`);
           peerConnection.pendingCandidates.push(candidate);
         }
-      } else {
-        console.warn(`⚠️ Cannot add ICE candidate for ${from} - no peer connection`);
       }
-    });
-
-    // Add retry mechanism for failed connections
-    socket.on('request-retry', ({ from }) => {
-      console.log('🔄 Retry requested from:', from);
-      
-      // Clean up existing connection
-      if (peersRef.current[from]) {
-        peersRef.current[from].close();
-        delete peersRef.current[from];
-      }
-      
-      // Create new connection after delay
-      setTimeout(async () => {
-        const peerConnection = createPeerConnection(from, true);
-        
-        try {
-          const offer = await peerConnection.createOffer({
-            offerToReceiveAudio: true,
-            offerToReceiveVideo: true
-          });
-          await peerConnection.setLocalDescription(offer);
-          
-          socket.emit('offer', {
-            offer,
-            to: from,
-            from: socket.id
-          });
-          
-          console.log(`🔄 Sent retry offer to ${from}`);
-        } catch (error) {
-          console.error(`❌ Error in retry for ${from}:`, error);
-        }
-      }, 1000);
     });
 
     return socket;
@@ -612,10 +613,8 @@ export default function VideoCall() {
   const leaveCall = async () => {
     console.log('🚪 Leave call initiated...');
     
-    // If moderator, end the class
     if (role === 'moderator') {
       try {
-        console.log('👨‍🏫 Moderator ending class...');
         await fetch(`https://a-y-a-n-o-k-o-j-i-ocoyam.hf.space/classes/end-class/${accessCode}`, {
           method: 'POST'
         });
@@ -624,43 +623,41 @@ export default function VideoCall() {
       }
     }
     
-    // Clean up BEFORE navigating
     cleanup();
-    
-    // Small delay to ensure cleanup completes
-    setTimeout(() => {
-      console.log('🏠 Navigating to classes...');
-      navigate('/classes');
-    }, 100);
+    setTimeout(() => navigate('/classes'), 100);
   };
 
-  // Cleanup function
+  // UPDATED: Cleanup function with audio element cleanup
   const cleanup = () => {
     console.log('🧹 Starting cleanup...');
     
-    // Stop voice detection first
+    // Clean up audio context
     if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
-      console.log('🔇 Closing audio context...');
       audioContextRef.current.close().catch(err => console.log('Audio context close error:', err));
       audioContextRef.current = null;
     }
     
-    // Stop all media tracks
+    // Clean up all audio elements
+    Object.keys(audioElementsRef.current).forEach(socketId => {
+      if (audioElementsRef.current[socketId]) {
+        document.body.removeChild(audioElementsRef.current[socketId]);
+      }
+    });
+    audioElementsRef.current = {};
+    
+    // Stop media tracks
     if (localStreamRef.current) {
-      console.log('📹 Stopping all media tracks...');
-      localStreamRef.current.getTracks().forEach(track => {
-        track.stop();
-      });
+      localStreamRef.current.getTracks().forEach(track => track.stop());
       localStreamRef.current = null;
     }
     
-    // Clear video element source
+    // Clear video element
     if (localVideoRef.current) {
       localVideoRef.current.srcObject = null;
       localVideoRef.current.load();
     }
     
-    // Close all peer connections
+    // Close peer connections
     Object.keys(peersRef.current).forEach(socketId => {
       if (peersRef.current[socketId]) {
         peersRef.current[socketId].close();
@@ -668,7 +665,7 @@ export default function VideoCall() {
     });
     peersRef.current = {};
     
-    // Stop media recorder if recording
+    // Stop recording
     if (mediaRecorderRef.current && isRecording) {
       mediaRecorderRef.current.stop();
       mediaRecorderRef.current = null;
@@ -721,7 +718,7 @@ export default function VideoCall() {
     }
   };
 
-  // Initialize everything on component mount
+  // Initialize everything
   useEffect(() => {
     const initialize = async () => {
       const stream = await initializeMedia();
@@ -732,11 +729,7 @@ export default function VideoCall() {
     
     initialize();
     
-    // Cleanup on unmount and page unload
-    const handleBeforeUnload = () => {
-      cleanup();
-    };
-    
+    const handleBeforeUnload = () => cleanup();
     window.addEventListener('beforeunload', handleBeforeUnload);
     
     return () => {
@@ -756,6 +749,7 @@ export default function VideoCall() {
               {role === 'moderator' ? 'You are the moderator' : 'You are a student'}
             </p>
             <p className="text-xs text-gray-500">ID: {localUserId.slice(-8)}</p>
+            
             {/* Name editing */}
             <div className="flex items-center gap-2">
               {isEditingName ? (
@@ -788,12 +782,22 @@ export default function VideoCall() {
             </div>
           </div>
         </div>
+        
         <div className="flex items-center gap-4">
+          {/* NEW: Raised hands indicator for moderator */}
+          {role === 'moderator' && raisedHands.size > 0 && (
+            <div className="bg-yellow-500 px-3 py-1 rounded text-sm flex items-center gap-2 animate-pulse">
+              <FaHandPaper />
+              <span>{raisedHands.size} hand{raisedHands.size !== 1 ? 's' : ''} raised</span>
+            </div>
+          )}
+          
           {countdown && (
             <div className="bg-red-500 px-3 py-1 rounded text-sm animate-pulse">
               Room closing in: {countdown}s
             </div>
           )}
+          
           <div className="flex items-center gap-2">
             <span className={`w-3 h-3 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`}></span>
             <span className="text-sm">{isConnected ? 'Connected' : 'Connecting...'}</span>
@@ -817,10 +821,14 @@ export default function VideoCall() {
               voiceActivity[localUserId] ? 'bg-green-500 shadow-lg shadow-green-500/50' : 'bg-black bg-opacity-50'
             }`}>
               You ({userName})
+              {isHandRaised && <span className="ml-2">✋</span>}
             </div>
             {isVideoOff && (
               <div className="absolute inset-0 bg-gray-700 flex items-center justify-center">
-                <FaVideoSlash size={48} className="text-gray-400" />
+                <div className="text-center">
+                  <FaVideoSlash size={48} className="text-gray-400 mb-2" />
+                  <p className="text-sm text-gray-400">Audio Only</p>
+                </div>
               </div>
             )}
             {isMuted && (
@@ -836,6 +844,7 @@ export default function VideoCall() {
               key={participant.socketId}
               participant={participant}
               isActive={voiceActivity[participant.socketId]}
+              hasHandRaised={raisedHands.has(participant.socketId)}
             />
           ))}
         </div>
@@ -857,7 +866,8 @@ export default function VideoCall() {
             👥 {participants.length} participant{participants.length !== 1 ? 's' : ''} connected
           </p>
           <p className="text-xs text-gray-600 mt-1">
-            My ID: {localUserId} | Socket: {socketRef.current?.id || 'Not connected'}
+            Audio connections: {participants.filter(p => p.hasAudio).length} | 
+            Video connections: {participants.filter(p => p.hasVideo).length}
           </p>
         </div>
       </div>
@@ -867,6 +877,7 @@ export default function VideoCall() {
         <button
           onClick={toggleMute}
           className={`p-3 rounded-full transition-colors ${isMuted ? 'bg-red-500 hover:bg-red-600' : 'bg-gray-600 hover:bg-gray-700'}`}
+          title={isMuted ? 'Unmute' : 'Mute'}
         >
           {isMuted ? <FaMicrophoneSlash /> : <FaMicrophone />}
         </button>
@@ -874,14 +885,32 @@ export default function VideoCall() {
         <button
           onClick={toggleVideo}
           className={`p-3 rounded-full transition-colors ${isVideoOff ? 'bg-red-500 hover:bg-red-600' : 'bg-gray-600 hover:bg-gray-700'}`}
+          title={isVideoOff ? 'Turn on camera' : 'Turn off camera'}
         >
           {isVideoOff ? <FaVideoSlash /> : <FaVideo />}
+        </button>
+
+        {/* NEW: Raise Hand Button */}
+        <button
+          onClick={toggleRaiseHand}
+          className={`p-3 rounded-full transition-colors ${
+            isHandRaised 
+              ? 'bg-yellow-500 hover:bg-yellow-600 animate-pulse' 
+              : 'bg-gray-600 hover:bg-gray-700'
+          }`}
+          title={isHandRaised ? 'Lower hand' : 'Raise hand'}
+        >
+          <FaHandPaper className={isHandRaised ? 'text-white' : ''} />
         </button>
 
         {role === 'moderator' && (
           <button
             onClick={isRecording ? stopRecording : startRecording}
-            className={`p-3 rounded-full transition-colors ${isRecording ? 'bg-red-500 hover:bg-red-600 animate-pulse' : 'bg-blue-500 hover:bg-blue-600'}`}
+            className={`p-3 rounded-full transition-colors ${
+              isRecording 
+                ? 'bg-red-500 hover:bg-red-600 animate-pulse' 
+                : 'bg-blue-500 hover:bg-blue-600'
+            }`}
             title={isRecording ? 'Stop Recording' : 'Start Recording'}
           >
             {isRecording ? <FaStop /> : <FaRecordVinyl />}
@@ -909,20 +938,25 @@ export default function VideoCall() {
   );
 }
 
-// Remote Video Component
-function RemoteVideo({ participant, isActive }) {
+// UPDATED: Remote Video Component with audio fallback and hand indicator
+function RemoteVideo({ participant, isActive, hasHandRaised }) {
   const videoRef = useRef(null);
 
   useEffect(() => {
-    if (participant.stream && videoRef.current) {
-      console.log(`🎥 Setting stream for participant: ${participant.name}`);
+    // Only set video stream if participant has video
+    if (participant.stream && participant.hasVideo && videoRef.current) {
+      console.log(`🎥 Setting video stream for: ${participant.name}`);
       videoRef.current.srcObject = participant.stream;
     }
-  }, [participant.stream]);
+  }, [participant.stream, participant.hasVideo]);
+
+  const hasVideo = participant.hasVideo;
+  const hasAudio = participant.hasAudio;
 
   return (
     <div className="relative bg-gray-800 rounded-lg overflow-hidden aspect-video">
-      {participant.stream ? (
+      {hasVideo && participant.stream ? (
+        // Show video if available
         <video
           ref={videoRef}
           autoPlay
@@ -930,19 +964,59 @@ function RemoteVideo({ participant, isActive }) {
           className="w-full h-full object-cover"
         />
       ) : (
+        // Show audio-only placeholder
         <div className="w-full h-full flex items-center justify-center bg-gray-700">
           <div className="text-center">
-            <div className="w-16 h-16 bg-gray-600 rounded-full flex items-center justify-center mx-auto mb-2">
+            <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-2 ${
+              isActive ? 'bg-green-600 animate-pulse' : 'bg-gray-600'
+            }`}>
               <span className="text-2xl font-bold">{participant.name?.charAt(0) || '?'}</span>
             </div>
-            <p className="text-sm text-gray-300">Connecting...</p>
+            {hasAudio ? (
+              <div className="text-center">
+                <p className="text-sm text-gray-300">{participant.name}</p>
+                <p className="text-xs text-gray-400">Audio Connected</p>
+                {isActive && (
+                  <div className="mt-1">
+                    <div className="w-2 h-2 bg-green-500 rounded-full mx-auto animate-pulse"></div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="text-center">
+                <p className="text-sm text-gray-300">{participant.name}</p>
+                <p className="text-xs text-gray-500">Connecting...</p>
+              </div>
+            )}
           </div>
         </div>
       )}
+      
+      {/* Participant info overlay */}
       <div className={`absolute bottom-2 left-2 px-2 py-1 rounded text-sm transition-all ${
         isActive ? 'bg-green-500 shadow-lg shadow-green-500/50' : 'bg-black bg-opacity-50'
       }`}>
         {participant.name} {participant.role === 'moderator' && '👨‍🏫'}
+        {hasHandRaised && <span className="ml-2 animate-bounce">✋</span>}
+      </div>
+      
+      {/* Connection status indicators */}
+      <div className="absolute top-2 right-2 flex gap-1">
+        {hasAudio && (
+          <div className="bg-green-500 p-1 rounded text-xs" title="Audio connected">
+            🎤
+          </div>
+        )}
+        {hasVideo && (
+          <div className="bg-blue-500 p-1 rounded text-xs" title="Video connected">
+            📹
+          </div>
+        )}
+        {!hasAudio && !hasVideo && (
+          <div className="bg-red-500 p-1 rounded text-xs" title="Connecting...">
+            ⏳
+          </div>
+        )}
       </div>
     </div>
   );
