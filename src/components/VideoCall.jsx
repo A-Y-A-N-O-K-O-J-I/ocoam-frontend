@@ -135,7 +135,7 @@ export default function VideoCall() {
       analyserRef.current = analyser;
 
       const checkVoiceActivity = () => {
-        if (!analyiserRef.current) return;
+        if (!analyserRef.current) return;
         
         analyser.getByteFrequencyData(dataArray);
         const average = dataArray.reduce((a, b) => a + b) / bufferLength;
