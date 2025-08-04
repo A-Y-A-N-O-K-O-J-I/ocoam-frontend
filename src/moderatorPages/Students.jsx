@@ -30,7 +30,7 @@ export default function StudentsList() {
   }, []);
 
   return (
-    <div className="flex h-screen w-full overflow-hidden">
+    <div className="flex h-screen w-full overflow-x-hidden">
       <ModeratorNavBar />
 
       <div className="flex-1">
