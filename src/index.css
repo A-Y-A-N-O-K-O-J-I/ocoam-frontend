@@ -1,6 +1,18 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
+html {
+  scroll-behavior: smooth;
+}
+
+
+:target::before {
+  content: "";
+  display: block;
+  height: 80px; /* height of your navbar */
+  margin-top: -80px;
+}
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {

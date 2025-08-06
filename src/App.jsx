@@ -9,7 +9,7 @@ import ForgotPassword from "./util-pages/ForgotPassword";
 import ResetPassword from "./util-pages/ResetPassword";
 import LiveClass from "./moderatorPages/LiveClasses";
 import TestApp from "./Test";
-import HomeSection from "./pages/Home";
+import FullPageWebsite from "./pages/FullPage";
 import ModeratorDashboard from "./moderatorPages/Dashboard";
 import ProtectedRoute from "./auth/protectedRoute";
 import ClassesList from "./moderatorPages/Classes";
@@ -22,6 +22,7 @@ import StudentClassesList from "./studentsPages/Classes";
 import BecomeModerator from "./studentsPages/BecomeModerator";
 import StudentProfileSection from "./studentsPages/Profile";
 import NotFoundPage from "./util-pages/NotFound";
+import { TermsOfService, PrivacyPolicy,CopyrightDisclaimer } from "./util-pages/Terms";
 // In your main App.jsx or router file
 import VideoCall from './components/VideoCall';
 
@@ -124,7 +125,7 @@ function App() {
             </ProtectedRoute>
           }
         />
-        <Route path="/moderator/test" element={<TestApp />} />
+        <Route path="/test" element={<TestApp />} />
         <Route path="/moderator" element={<BecomeModerator />} />
         <Route
           path="/moderator/classes"
@@ -159,8 +160,15 @@ function App() {
             </ProtectedModeratorRoute>
           }
         />
-        <Route path="/" element={<HomeSection />} />
-        <Route path="/classroom/:classId" element={<LiveClass />} />
+        <Route path="/" element={<FullPageWebsite />} />
+        <Route path="/classroom/:classId" element={
+
+          <LiveClass />
+
+          } />
+          <Route path="/terms-of-service" element = { <TermsOfService /> } />
+          <Route path="/privacy-policy" element = { <PrivacyPolicy /> } />
+          <Route path="/copyright" element = { <CopyrightDisclaimer /> } />
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </Router>

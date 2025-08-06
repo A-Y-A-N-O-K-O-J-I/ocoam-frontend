@@ -6,7 +6,7 @@ const contents = [
 ];
 function NavBar() {
   return (
-    <nav className="bg-white shadow h-10 sticky top-0 z-50 w-full">
+    <nav className="bg-white shadow h-10 my-7 sticky top-0 z-50 w-full">
       <div className="flex justify-between pt-2 px-3 items-center ">
         <div className="flex space-x-2">
         <img src="/logo.png" className="h-7 w-7 border-3 border-black rounded-full" />
