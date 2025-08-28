@@ -1,4 +1,5 @@
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import "./animation.css"
 import Login from "./util-pages/Login";
 import Logout from "./util-pages/Logout";
 import Signup from "./util-pages/Signup";
@@ -7,7 +8,6 @@ import AuthOnlyRoute from "./auth/authOnly";
 import EmailVerified from "./util-pages/EmailVerified";
 import ForgotPassword from "./util-pages/ForgotPassword";
 import ResetPassword from "./util-pages/ResetPassword";
-import LiveClass from "./moderatorPages/LiveClasses";
 import TestApp from "./Test";
 import FullPageWebsite from "./pages/FullPage";
 import ModeratorDashboard from "./moderatorPages/Dashboard";
@@ -22,12 +22,17 @@ import StudentClassesList from "./studentsPages/Classes";
 import BecomeModerator from "./studentsPages/BecomeModerator";
 import StudentProfileSection from "./studentsPages/Profile";
 import NotFoundPage from "./util-pages/NotFound";
+import ClassStatusWrapper from "./auth/videoProtectedRoute";
 import { TermsOfService, PrivacyPolicy,CopyrightDisclaimer } from "./util-pages/Terms";
 // In your main App.jsx or router file
 import VideoCall from './components/VideoCall';
+import LibraryDashboard from "./moderatorPages/LibraryDashboard";
+import UserLibraryDashboard from "./studentsPages/UserLibraryDashboard";
 
 // Add this route
 function App() {
+  const subdomain = window.location.hostname.split(".")[0];
+
   return (
     <Router>
       <Routes>
@@ -40,6 +45,7 @@ function App() {
             </AuthOnlyRoute>
           }
         />
+        
           <Route path="/class/:accessCode" element={<VideoCall />} />
 
         {/* 🔐 Guest-only: Signup Page */}
@@ -98,7 +104,7 @@ function App() {
           element={
             <ProtectedModeratorRoute>
               <ModeratorDashboard />
-            </ProtectedModeratorRoute>
+            </ProtectedModeratorRoute> 
           }
         />
         <Route
@@ -125,15 +131,26 @@ function App() {
             </ProtectedRoute>
           }
         />
-        <Route path="/test" element={<TestApp />} />
-        <Route path="/moderator" element={<BecomeModerator />} />
+        <Route path="/moderator/library" element={
+          <ProtectedModeratorRoute>
+            <LibraryDashboard />
+          </ProtectedModeratorRoute>
+        }
+           />
+        <Route path="/library" element={<UserLibraryDashboard />} />
+        <Route path="/moderator" element={
+          <ProtectedRoute>
+
+            <BecomeModerator />
+          </ProtectedRoute>
+          } />
         <Route
           path="/moderator/classes"
           element={
+            
             <ProtectedModeratorRoute>
-              {" "}
-              <ClassesList />{" "}
-            </ProtectedModeratorRoute>
+            <ClassesList />
+            </ProtectedModeratorRoute> 
           }
         />
         <Route
@@ -152,20 +169,21 @@ function App() {
             </ProtectedModeratorRoute>
           }
         />
-        <Route
+       {/*  <Route
           path="/moderator/teachers"
           element={
             <ProtectedModeratorRoute>
               <TeachersList />
             </ProtectedModeratorRoute>
           }
-        />
+        /> */}
         <Route path="/" element={<FullPageWebsite />} />
-        <Route path="/classroom/:classId" element={
+        {/* <Route path="/classroom/:classId" element={
+          <ClassStatusWrapper>
+            <LiveClass />
+          </ClassStatusWrapper>
 
-          <LiveClass />
-
-          } />
+          } /> */}
           <Route path="/terms-of-service" element = { <TermsOfService /> } />
           <Route path="/privacy-policy" element = { <PrivacyPolicy /> } />
           <Route path="/copyright" element = { <CopyrightDisclaimer /> } />

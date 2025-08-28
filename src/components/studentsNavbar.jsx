@@ -7,6 +7,7 @@ import {
   User,
   UserCircle,
   LogOutIcon,
+  Book,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 function StudentNavBar() {
@@ -14,6 +15,7 @@ function StudentNavBar() {
     { icons: <House size={20} />, labels: "Home" },
     { icons: <Video size={20} />, labels: "Classes" },
     { icons: <User size={20} />, labels: "Moderator" },
+    { icons: <Book size={20} />, labels: "Library" },
     { icons: <UserCircle size={20} />, labels: "Profile" },
   ];
   const [isOpen, setIsOpen] = useState(false);
