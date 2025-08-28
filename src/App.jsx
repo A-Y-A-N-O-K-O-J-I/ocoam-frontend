@@ -137,7 +137,12 @@ function App() {
           </ProtectedModeratorRoute>
         }
            />
-        <Route path="/library" element={<UserLibraryDashboard />} />
+        <Route path="/library" element={
+          <ProtectedRoute>
+            <UserLibraryDashboard />
+
+          </ProtectedRoute>
+          } />
         <Route path="/moderator" element={
           <ProtectedRoute>
 
