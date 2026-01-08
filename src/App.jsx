@@ -21,6 +21,7 @@ import ProtectedModeratorRoute from "./auth/protectedModeratorRoute";
 import StudentClassesList from "./studentsPages/Classes";
 import BecomeModerator from "./studentsPages/BecomeModerator";
 import StudentProfileSection from "./studentsPages/Profile";
+import AdmissionForm from "./pages/form";
 import NotFoundPage from "./util-pages/NotFound";
 import ClassStatusWrapper from "./auth/videoProtectedRoute";
 import { TermsOfService, PrivacyPolicy,CopyrightDisclaimer } from "./util-pages/Terms";
@@ -45,7 +46,7 @@ function App() {
             </AuthOnlyRoute>
           }
         />
-        
+        <Route path="/form" element = {<AdmissionForm/>} />
           <Route path="/class/:accessCode" element={<VideoCall />} />
 
         {/* 🔐 Guest-only: Signup Page */}
@@ -87,7 +88,6 @@ function App() {
             </AuthOnlyRoute>
           }
         />
-
         {/* 🔐 Guest-only: Reset Password Page */}
         <Route
           path="/update-password"

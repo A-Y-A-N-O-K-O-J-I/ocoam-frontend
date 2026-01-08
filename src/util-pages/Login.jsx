@@ -72,7 +72,7 @@ const navigate = useNavigate()
     navigate("/moderator/dashboard");
    }
    if(output.status === 200 && !output.moderator){
-    navigate("/dashboard")
+    navigate("/form")
    }
 
 }
