@@ -135,7 +135,7 @@ function Hero() {
             </a>
 
             <a
-              href="#contact"
+              href="/signup"
               className="inline-block border-2 border-green-700 text-green-700 px-8 py-4 rounded-full hover:bg-green-700 hover:text-white transition-all duration-300 font-semibold text-lg"
               aria-label="Contact Oduduwa College for enrollment information"
             >
@@ -759,9 +759,7 @@ function ProgramsSection() {
                 {/* Action Buttons */}
                 <div className="flex flex-col sm:flex-row gap-3">
                   <a
-                    href={`https://wa.me/2348022981214?text=${encodeURIComponent(
-                      `I found this course "${program.title}" from your website I would like to learn more about it sir.`
-                    )}`}
+                    href="/signup"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex-1 text-center bg-green-700 text-white py-3 px-6 rounded-xl hover:bg-green-800 transition-all duration-300 font-semibold hover:shadow-lg"
@@ -769,9 +767,7 @@ function ProgramsSection() {
                     <button>Learn More</button>
                   </a>
                   <a
-                    href={`https://wa.me/2348022981214?text=${encodeURIComponent(
-                      `I would like to enroll in this course "${program.title}". I got it from your website`
-                    )}`}
+                    href="/signup"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex-1 border-2 border-green-700 text-green-700 py-3 px-6 rounded-xl text-center hover:bg-green-700 hover:text-white transition-all duration-300 font-semibold"
